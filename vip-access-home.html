@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>VipAccess | Premium Loyalty</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #0a0a0a; color: white; overflow: hidden; }
+        .gold-gradient { background: linear-gradient(135deg, #D4AF37 0%, #F9E29C 50%, #B8860B 100%); }
+        .glass { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1); }
+        .keypad-btn { background: rgba(255, 255, 255, 0.05); transition: all 0.2s; }
+        .keypad-btn:active { background: #D4AF37; color: black; transform: scale(0.95); }
+    </style>
+</head>
+<body class="h-screen flex flex-col">
+
+    <!-- NAVIGATION -->
+    <nav class="flex justify-around p-4 glass border-b border-white/10">
+        <button onclick="switchView('staff')" id="staffTab" class="text-xs uppercase tracking-widest font-bold text-white">Staff Portal</button>
+        <button onclick="switchView('customer')" id="customerTab" class="text-xs uppercase tracking-widest font-bold text-gray-500">VIP Member</button>
+    </nav>
+
+    <!-- STAFF VIEW -->
+    <div id="staffView" class="flex-1 flex flex-col p-6">
+        <div class="text-center mb-4">
+            <h2 class="text-gray-400 text-sm uppercase tracking-tighter">Enter Bill Amount</h2>
+            <div id="display" class="text-5xl font-bold mt-2 text-white">$0</div>
+        </div>
+
+        <div class="grid grid-cols-3 gap-3 flex-1 max-h-[400px]">
+            <button onclick="addNum('1')" class="keypad-btn rounded-xl flex items-center justify-center text-2xl font-semibold">1</button>
+            <button onclick="addNum('2')" class="keypad-btn rounded-xl flex items-center justify-center text-2xl font-semibold">2</button>
+            <button onclick="addNum('3')" class="keypad-btn rounded-xl flex items-center justify-center text-2xl font-semibold">3</button>
+            <button onclick="addNum('4')" class="keypad-btn rounded-xl flex items-center justify-center text-2xl font-semibold">4</button>
+            <button onclick="addNum('5')" class="keypad-btn rounded-xl flex items-center justify-center text-2xl font-semibold">5</button>
+            <button onclick="addNum('6')" class="keypad-btn rounded-xl flex items-center justify-center text-2xl font-semibold">6</button>
+            <button onclick="addNum('7')" class="keypad-btn rounded-xl flex items-center justify-center text-2xl font-semibold">7</button>
+            <button onclick="addNum('8')" class="keypad-btn rounded-xl flex items-center justify-center text-2xl font-semibold">8</button>
+            <button onclick="addNum('9')" class="keypad-btn rounded-xl flex items-center justify-center text-2xl font-semibold">9</button>
+            <button onclick="clearNum()" class="keypad-btn rounded-xl flex items-center justify-center text-sm font-bold text-red-500">CLR</button>
+            <button onclick="addNum('0')" class="keypad-btn rounded-xl flex items-center justify-center text-2xl font-semibold">0</button>
+            <button onclick="sendToCustomer()" class="gold-gradient rounded-xl flex items-center justify-center text-black font-bold">SEND</button>
+        </div>
+    </div>
+
+    <!-- CUSTOMER VIEW -->
+    <div id="customerView" class="hidden flex-1 p-6 flex flex-col items-center">
+        <div class="glass w-full rounded-3xl p-6 mb-8 text-center relative overflow-hidden">
+            <div class="absolute top-0 right-0 p-4 opacity-20 text-4xl">✨</div>
+            <h3 class="text-gray-400 text-xs uppercase tracking-widest mb-4">VIP Loyalty Card</h3>
+            <div class="flex justify-center gap-2 mb-4">
+                <span id="star1" class="text-3xl text-gray-600">★</span>
+                <span id="star2" class="text-3xl text-gray-600">★</span>
+                <span id="star3" class="text-3xl text-gray-600">★</span>
+                <span id="star4" class="text-3xl text-gray-600">★</span>
+                <span id="star5" class="text-3xl text-gray-600">★</span>
+            </div>
+            <p class="text-sm text-white/60">2 more visits for a FREE Bottle</p>
+        </div>
+
+        <div id="pendingBox" class="w-full glass border-yellow-500/50 rounded-2xl p-6 text-center hidden">
+            <p class="text-xs text-yellow-500 uppercase font-bold mb-2">Action Required</p>
+            <h4 class="text-2xl font-bold mb-4">Confirm Bill: <span id="pendingAmount">$0</span></h4>
+            <button onclick="confirmBill()" class="w-full py-4 gold-gradient rounded-xl text-black font-bold uppercase tracking-widest shadow-lg shadow-yellow-500/20">Confirm & Earn Star</button>
+        </div>
+    </div>
+
+    <script>
+        // --- CONFIGURATION ---
+        const SUPABASE_URL = 'YOUR_SUPABASE_URL';
+        const SUPABASE_KEY = 'YOUR_SUPABASE_ANON_KEY';
+        const supabase = exports.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        let currentAmount = "";
+        let currentStars = 3; // Mock data
+
+        // --- NAVIGATION ---
+        function switchView(view) {
+            const staff = document.getElementById('staffView');
+            const customer = document.getElementById('customerView');
+            const staffTab = document.getElementById('staffTab');
+            const customerTab = document.getElementById('customerTab');
+
+            if(view === 'staff') {
+                staff.classList.remove('hidden');
+                customer.classList.add('hidden');
+                staffTab.classList.replace('text-gray-500', 'text-white');
+                customerTab.classList.replace('text-white', 'text-gray-500');
+            } else {
+                staff.classList.add('hidden');
+                customer.classList.remove('hidden');
+                customerTab.classList.replace('text-gray-500', 'text-white');
+                staffTab.classList.replace('text-white', 'text-gray-500');
+                updateStars();
+                checkPending();
+            }
+        }
+
+        // --- STAFF LOGIC ---
+        function addNum(n) {
+            currentAmount += n;
+            document.getElementById('display').innerText = "$" + currentAmount;
+        }
+        function clearNum() {
+            currentAmount = "";
+            document.getElementById('display').innerText = "$0";
+        }
+        async function sendToCustomer() {
+            if(!currentAmount) return alert("Enter amount");
+            const { data, error } = await supabase.from('transactions').insert([
+                { amount: parseInt(currentAmount), status: 'pending', customer_id: 'MOCK_ID' }
+            ]);
+            if(!error) {
+                alert("Sent to Customer!");
+                clearNum();
+            }
+        }
+
+        // --- CUSTOMER LOGIC ---
+        function updateStars() {
+            for(let i=1; i<=5; i++) {
+                document.getElementById('star'+i).style.color = i <= currentStars ? '#D4AF37' : '#333';
+            }
+        }
+        async function checkPending() {
+            const { data } = await supabase.from('transactions').select('*').eq('status', 'pending').single();
+            if(data) {
+                document.getElementById('pendingAmount').innerText = "$" + data.amount;
+                document.getElementById('pendingBox').classList.remove('hidden');
+            }
+        }
+        async function confirmBill() {
+            // Logic to update Supabase and increment stars
+            alert("Confirmed! Star Added.");
+            document.getElementById('pendingBox').classList.add('hidden');
+            currentStars++;
+            updateStars();
+        }
+    </script>
+</body>
+</html>
